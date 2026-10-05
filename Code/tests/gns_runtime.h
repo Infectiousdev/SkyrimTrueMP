@@ -1,8 +1,10 @@
 #pragma once
 
-// Initialises the standalone GameNetworkingSockets library once for all tests in this binary.
+// Gives the tests one shared handle on the standalone GameNetworkingSockets library. It takes a
+// reference through the network library's own counter and never releases it, so the library is not
+// shut down underneath tests that still use it.
 
-#include <steam/steamnetworkingsockets.h>
+#include <Gns.h>
 
 #include <catch2/catch.hpp>
 
@@ -10,9 +12,8 @@ inline ISteamNetworkingSockets* TestSockets()
 {
     static ISteamNetworkingSockets* s_pSockets = []
     {
-        SteamDatagramErrMsg error;
-        REQUIRE(GameNetworkingSockets_Init(nullptr, error));
-        return SteamNetworkingSockets();
+        REQUIRE(TrueMP::Net::Gns::Acquire());
+        return TrueMP::Net::Gns::Sockets();
     }();
     return s_pSockets;
 }
