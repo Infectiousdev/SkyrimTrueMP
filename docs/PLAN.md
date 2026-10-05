@@ -10,7 +10,9 @@ complete, then build from it. Last updated 2026-10-05.
 What we know:
 
 * A heavily modded Skyrim SE playthrough that can be played **single player or co-op**.
-* Co-op is with Steam friends, with everyone on the same mods.
+* A **large** mod list, with more mods added over time.
+* Co-op is **two players only** for now (more later), with Steam friends, on the same mods.
+* Co-op and single player carry on in **the same world**, and saving is shared (section 6a).
 * From the game's main menu you either load/start a single-player game or choose
   multiplayer.
 * Installing is: link your Skyrim folder in the launcher once, and the rest is handled.
@@ -21,9 +23,7 @@ Still open (we decide these in the back and forth):
 
 * The theme and tone of the playthrough: what is the fantasy? (survival, lore-friendly
   vanilla-plus, hardcore, a story overhaul, ...)
-* How big the mod list is. A bigger list means more things that can break co-op (section 6).
-* How many players, and whether co-op is drop-in/drop-out or a fixed party.
-* Whether single-player and co-op share characters/saves or are separate worlds.
+* The exact size of the mod list. A bigger list means more things that can break co-op (section 6).
 
 ## 2. Requirements collected so far
 
@@ -37,6 +37,10 @@ Still open (we decide these in the back and forth):
 | R6 | Mods delivered by a Nexus Collection (later) | You |
 | R7 | Proper source and attribution so there is no licence trouble | You |
 | R8 | No dependence on closed "All Rights Reserved" code in what we ship | You (reading of "use original source") |
+| R9 | Mods that don't work in co-op get **compatibility work** so they end up fully compatible, bug-free and crash-free: patches, forks, or remakes (section 6b) | You |
+| R10 | A large mod list, growing over time | You |
+| R11 | Co-op is two players only for now; more later | You |
+| R12 | One shared world; saving by one player saves for both (section 6a) | You |
 
 ## 3. What the code does today (facts, with where I read them)
 
@@ -121,6 +125,48 @@ How a mod interacts with co-op (my reading of how the engine works; **all of it 
   behaviour data per creature), mods that replace the player or NPC skeletons, other
   multiplayer mods, SKSE plugins that keep their own world state.
 * A mod that works in single player but desyncs in co-op must be recorded, with the symptom.
+
+### 6b. Compatibility work (R9)
+
+The goal is that every mod on the list ends up fully compatible, bug-free and crash-free in
+co-op. Each mod gets a **tier**, found by testing, not guessing:
+
+| Tier | Meaning | What we do |
+|---|---|---|
+| 0 | Works as is | Nothing; record the test that proved it |
+| 1 | Needs a record-level fix | Our own patch plugin (ESP/ESL). It holds only our records, none of the other mod's assets |
+| 2 | Needs the client to behave differently around it | A compatibility module in our client, written by us |
+| 3 | Needs the mod itself changed | Fork it (open source, compatible licence), edit it (its permissions allow), or remake it ourselves |
+| 4 | Can't be made to work | Replace it with an alternative |
+
+Rules for tier 3, because you want no licence trouble:
+
+* **First check each mod's permissions** on its Nexus page and its licence. The mod table has a
+  column for it. That decides fork, edit, or remake.
+* **Open source with a compatible licence:** fork it, keep the author's licence and credit.
+* **Closed or "All Rights Reserved":** studying how it behaves is fine (run it, watch what it
+  does, read what it exposes to scripts, write down how it interacts with the game). Our
+  version is then **written by us from that behaviour spec**. Copying its code or assets, or a
+  decompiled copy under another name, is not something I'll do, and it would bring back the
+  same problem we just removed from the network and core libraries. Whether interoperability
+  analysis of a given mod is allowed depends on its terms and your jurisdiction; if a specific
+  mod matters enough, that is a question for a lawyer, not for me.
+* Where the author is reachable, **asking permission** is usually quicker than a remake.
+
+**"Done" for a compatibility item is observed, not intended.** Each one gets:
+
+1. a written reproduction of the problem (two players, exact steps, what goes wrong),
+2. an acceptance test: the same steps repeated until it passes, then a longer scripted route
+   with no crash and no desync,
+3. a note of which mods it was tested next to.
+
+"Crash-free" can only be shown by running two real games. I can write the patches, the client
+compatibility modules and the test scripts here; **every one of them has to be run on your
+machines**, so the number of compatibility items is also a schedule decision.
+
+**Large lists:** the list will be big, so the connect-time check has to be cheap. Planned:
+hash in the background and cache results by file size and modified time, so only changed
+files are re-read. Skyrim's plugin limits (254 full plugins plus ESL) cap the list as well.
 
 Mod candidates table (we fill this together):
 
