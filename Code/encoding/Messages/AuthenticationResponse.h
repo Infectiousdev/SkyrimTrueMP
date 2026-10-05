@@ -2,6 +2,7 @@
 
 #include "Message.h"
 #include <Structs/Mods.h>
+#include <Structs/ModManifest.h>
 #include <Structs/ServerSettings.h>
 
 struct AuthenticationResponse final : ServerMessage
@@ -26,13 +27,15 @@ struct AuthenticationResponse final : ServerMessage
     void SerializeRaw(TiltedPhoques::Buffer::Writer& aWriter) const noexcept override;
     void DeserializeRaw(TiltedPhoques::Buffer::Reader& aReader) noexcept override;
 
-    bool operator==(const AuthenticationResponse& achRhs) const noexcept { return GetOpcode() == achRhs.GetOpcode() && Type == achRhs.Type && UserMods == achRhs.UserMods && Settings == achRhs.Settings && PlayerId == achRhs.PlayerId; }
+    bool operator==(const AuthenticationResponse& achRhs) const noexcept { return GetOpcode() == achRhs.GetOpcode() && Type == achRhs.Type && UserMods == achRhs.UserMods && ManifestIssues == achRhs.ManifestIssues && Settings == achRhs.Settings && PlayerId == achRhs.PlayerId; }
 
     ResponseType Type;
     bool SKSEActive{false};
     bool MO2Active{false};
     String Version;
     Mods UserMods{};
+    // SkyrimTrueMP: why a kModsMismatch happened, relative to the first player on the server.
+    Vector<ModManifest::Issue> ManifestIssues{};
     ServerSettings Settings{};
     uint32_t PlayerId{};
 };

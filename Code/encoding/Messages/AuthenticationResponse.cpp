@@ -7,6 +7,7 @@ void AuthenticationResponse::SerializeRaw(TiltedPhoques::Buffer::Writer& aWriter
     Serialization::WriteBool(aWriter, MO2Active);
     Serialization::WriteString(aWriter, Version);
     UserMods.Serialize(aWriter);
+    ModManifest::SerializeIssues(ManifestIssues, aWriter);
     Settings.Serialize(aWriter);
     Serialization::WriteVarInt(aWriter, PlayerId);
 }
@@ -18,6 +19,7 @@ void AuthenticationResponse::DeserializeRaw(TiltedPhoques::Buffer::Reader& aRead
     MO2Active = Serialization::ReadBool(aReader);
     Version = Serialization::ReadString(aReader);
     UserMods.Deserialize(aReader);
+    ModManifest::DeserializeIssues(ManifestIssues, aReader);
     Settings.Deserialize(aReader);
     PlayerId = Serialization::ReadVarInt(aReader) & 0xFFFFFFFF;
 }
