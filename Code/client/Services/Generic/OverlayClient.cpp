@@ -4,7 +4,10 @@
 #include <DInputHook.hpp>
 
 #include <Services/OverlayClient.h>
+#include <Services/SteamTunnelService.h>
 #include <Services/TransportService.h>
+
+#include <Events/ConnectionErrorEvent.h>
 
 #include <Messages/SendChatMessageRequest.h>
 #include <Messages/TeleportRequest.h>
@@ -100,14 +103,40 @@ void OverlayClient::ProcessConnectMessage(CefRefPtr<CefListValue> aEventArgs)
     uint16_t port = aEventArgs->GetInt(1) ? aEventArgs->GetInt(1) : 10578;
     World::Get().GetTransport().SetServerPassword(aEventArgs->GetString(2));
 
+    // SkyrimTrueMP: "steam:<SteamID64>" in place of an IP address joins a friend through Steam.
+    // The game connects to a local port once the tunnel to the host is up.
+    if (SteamTunnelService::IsSteamAddress(baseIp))
+    {
+        SteamTunnelService::Get().Join(
+            baseIp, [](const std::string& aEndpoint) { World::Get().GetRunner().Queue([aEndpoint] { World::Get().GetTransport().Connect(aEndpoint); }); },
+            [](const std::string& aReason)
+            {
+                // Quotes and backslashes would break the JSON the UI parses.
+                std::string reason;
+                for (char c : aReason)
+                    reason += (c == '"' || c == '\\') ? ' ' : c;
+
+                ConnectionErrorEvent errorEvent;
+                errorEvent.ErrorDetail = ("{\"error\": \"steam_unavailable\", \"data\": {\"reason\": \"" + reason + "\"}}").c_str();
+                World::Get().GetRunner().Trigger(errorEvent);
+            });
+        return;
+    }
+
     std::string endpoint = baseIp + ":" + std::to_string(port);
 
     World::Get().GetRunner().Queue([endpoint] { World::Get().GetTransport().Connect(endpoint); });
+
+    // SkyrimTrueMP: joining a server on this very machine means the player is hosting, so their
+    // Steam friends may join too. Friends only; see SteamTunnelService.
+    if (baseIp == "127.0.0.1")
+        SteamTunnelService::Get().OfferToFriends(port);
 }
 
 void OverlayClient::ProcessDisconnectMessage()
 {
     World::Get().GetRunner().Queue([]() { World::Get().GetTransport().Close(); });
+    SteamTunnelService::Get().StopJoining();
 }
 
 void OverlayClient::ProcessRevealPlayersMessage()
