@@ -24,29 +24,38 @@ Per GPLv3 §5(a), modified files are listed with dates in
 preserved in git, so authorship of every upstream line is intact
 (`git log`, `git blame`).
 
-## Components that are NOT GPL — read before redistributing binaries
+## Components that are NOT GPL: read before redistributing binaries
 
-The client build depends on four Tilted Phoques libraries that are pulled in as
+The Windows client still depends on three Tilted Phoques libraries that are pulled in as
 git submodules (see [`.gitmodules`](.gitmodules)):
 
-* `Libraries/TiltedConnect`
-* `Libraries/TiltedReverse`
-* `Libraries/TiltedHooks`
-* `Libraries/TiltedUI`
+* `Libraries/TiltedReverse` (function hooks and memory patching)
+* `Libraries/TiltedHooks` (Direct3D 11, DirectInput and window hooks)
+* `Libraries/TiltedUI` (the in-game browser overlay)
 
 Each of these carries only this notice: *"Copyright (c) 2019 Tilted Phoques.
-All Rights Reserved. … Do not remove or modify any license notices."* That is
+All Rights Reserved. ... Do not remove or modify any license notices."* That is
 not an open-source licence and grants no right to modify or redistribute.
 
-How this fork handles that:
+Two other Tilted Phoques libraries carried the same notice and have been **removed and replaced** by
+original GPLv3-or-later code in this fork:
+
+* `TiltedConnect` (networking) is replaced by `Code/net`.
+* `TiltedCore` (containers, buffers, serialization, allocators) is replaced by `Code/core`. Everything
+  in the project depended on it, the server included.
+
+The server, the admin tool and the tests no longer use any closed Tilted code. See the provenance notes
+in `Code/core/README.md` and `docs/SKYRIMTRUEMP.md` for exactly how the replacements were written.
+
+How this fork handles the three that remain:
 
 * The submodules are referenced, **never copied into or modified by this
   repository**. All SkyrimTrueMP changes live in the GPL-licensed code.
 * If you distribute a *client binary built from this tree*, that binary
-  contains compiled code from those four libraries. The safe course is to get
-  the Tilted team's written permission first, or to distribute only the
-  GPL parts (server, patches, source) and have players obtain the official
-  Skyrim Together Reborn client from its original publisher.
+  contains compiled code from those three libraries. The safe course is to get
+  the Tilted team's written permission first, to replace them (see
+  `docs/SKYRIMTRUEMP.md`), or to distribute only the GPL parts (server, patches,
+  source) and have players obtain the official Skyrim Together Reborn client.
 
 Other dependencies (GameNetworkingSockets, EnTT, spdlog, Crypto++, …) are
 fetched by xmake at build time and keep their own licences. Valve's
