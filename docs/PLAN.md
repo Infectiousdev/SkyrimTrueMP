@@ -276,9 +276,11 @@ files are re-read. Skyrim's plugin limits (254 full plugins plus ESL) cap the li
 
 **Tags** (every mod gets exactly one):
 
-* `[MOD LIST]`: goes on the list as it is. A client compatibility module may still be needed.
+* `[MOD LIST]`: goes on the list as it is. Nothing to build.
+* `[COMPAT]`: goes on the list as it is, but we build compatibility around it (client module or patch plugin).
 * `[MODIFY]`: we edit or fork it (open source, or its permissions allow).
 * `[REMAKE]`: we write our own version from its observed behaviour.
+* `[MAKE]`: does not exist yet, we write it from scratch.
 
 No gameplay mods have been named yet. The rows below are only what the code already requires or
 special-cases. The "Licence" column stays empty until someone has read the mod's permissions.
@@ -289,9 +291,21 @@ special-cases. The "Licence" column stays empty until someone has read the mod's
 | `[MOD LIST]` | SKSE64, AE build matching the pinned game version | | framework | yes | | | | loaded by the client from the game folder | required |
 | `[MOD LIST]` | Address Library for SKSE Plugins ("All in one") | nexusmods.com/skyrimspecialedition/mods/32444 | framework | | yes | | | client shows an error without it | required |
 | ours | SkyrimTogether.esp, SkyrimTogetherQuestPatches.esp, scripts, creature behaviour files | | ships in this repo (`GameFiles/`) | | | | | part of the SkyrimTrueMP package, not a Nexus mod | required |
-| `[MOD LIST]` | SkyrimSoulsRE | | UI | yes | yes | medium | | client special-cases it with one fragile flag; needs a proper compat module | to review |
+| `[COMPAT]` | SkyrimSoulsRE | | UI | yes | yes | medium | | client special-cases it with one fragile flag; needs a proper compat module | to review |
+| `[COMPAT]` | ENB, ReShade and other graphics injectors | | graphics | | | unknown | | never tested against the client's own D3D11 hooks | to test |
 | `[MODIFY]` (tentative) | SSE Engine Fixes | | engine fixes | yes | yes | high | not checked | the launcher blocks its DLL because it breaks the client's hooks, and rewrites its toml | to decide |
 | `[MODIFY]` or `[REMAKE]` | Animation and behaviour replacers (Nemesis/Pandora, DAR/OAR style, creature behaviour mods) | | animation | | | high | not checked | break the client's animation sync; which ones we want is not decided | to decide |
+| `[MAKE]` | Save sync: stamp, connect check, desync detector, coordinated save (6a) | | ours | maybe (D9) | | | ours | needs an engine save hook, found on Windows | planned |
+| `[MAKE]` | Compat patch plugin(s) for the mod list | | ours | | | | ours | one per conflict we find (6b tier 1) | planned |
+| `[MAKE]` | Client compat registry (replaces the ad hoc special cases) | | ours | | | | ours | first user: SkyrimSoulsRE | planned |
+| `[MAKE]` | Main-menu Single player / Multiplayer entry (D3) | | ours | | | | ours | overlay button | planned |
+
+**At a glance:**
+
+* **Have:** Skyrim SE + DLCs, SKSE64, Address Library, SkyrimTogether plugins (ours).
+* **Make:** save sync, compat patch plugins, client compat registry, main-menu entry.
+* **Compat / modify / remake:** SkyrimSoulsRE, ENB/ReShade, Engine Fixes, animation replacers. No gameplay mods named yet.
+* Not mods, but also to build: the launcher app and host-from-game.
 
 Ideas and wishes (anything goes, we sort later):
 
