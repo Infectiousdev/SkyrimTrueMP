@@ -297,6 +297,37 @@ Ideas and wishes (anything goes, we sort later):
 
 *
 
+### 6d. Triage card: how we go through each mod
+
+For every mod: name and link, then answer these. The answers set the tag and the tier.
+
+1. **What is it made of?** Only textures, meshes, sounds and plain records (likely tier 0), or does
+   it add scripts, an SKSE plugin, or animation files?
+2. **Does it keep state in scripts or in memory?** Script and plugin state is not synced, so each
+   player's copy drifts. Per-player state is fine; world state is not.
+3. **Does it touch something the client already controls?** Time and weather, menus and the
+   overlay, animation graphs, quests, spells and combat, actors it creates at runtime.
+4. **Does it change game settings the client enforces?** See the hard limits below.
+5. **Permissions:** read the mod's permissions page and licence. That decides `[MODIFY]` or `[REMAKE]`.
+6. **What test proves it works?** Two players, exact steps, expected result (6b).
+
+**Hard limits we already know from the code** (so a mod that crosses one needs work, not luck):
+
+* `uGridsToLoad` must be **5**: the client raises an error otherwise. Performance mods or INI
+  tweaks that change it conflict.
+* The **server owns the game clock and the timescale**, and weather follows the party leader.
+  Mods that change time, timescale or weather logic conflict.
+* **Quests sync only start/stop and stage numbers.** Objectives, aliases and globals are not
+  synced, so quest mods that depend on them drift.
+* **Animation sync is keyed on known behaviour graphs.** Anything that changes behaviour graphs
+  or their variables falls off the table and desyncs.
+* **Runtime-created (0xFF-range) actors are deleted on connect.** Mods that spawn actors
+  (summons, follower frameworks, spawners) lose them.
+* **The launcher blocks some injectors and overlays** (SkyrimSoulsRE is special-cased; SpecialK,
+  Fraps, NvCamera, EngineFixes are blocked). ENB, ReShade and other D3D hooks are **untested
+  against the client's own D3D11 hooks**: treat them as unknown until run.
+* Menu mods can clash with the menus the client un-pauses and the overlay it draws.
+
 ## 7. Things I can and cannot verify (so planning stays honest)
 
 * **Can, here:** the portable logic (detection, checks, pack diff, manifest), the server and
