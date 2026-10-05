@@ -36,7 +36,6 @@ add_requires(
     "entt v3.10.0", 
     "recastnavigation v1.6.0", 
     "tiltedcore 0.2.9", 
-    "cryptopp 8.9.0", 
     "spdlog v1.13.0", 
     "cpp-httplib 0.14.0",
     "gtest v1.14.0", 
@@ -46,6 +45,7 @@ add_requires(
 )
 if is_plat("windows") then
     add_requires(
+        "cryptopp 8.9.0", -- SkyrimTrueMP: only the Windows client/launcher use it, so Linux server builds skip it
         "discord 3.2.1", 
         "imgui v1.89.7"
     )
