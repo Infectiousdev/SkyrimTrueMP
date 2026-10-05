@@ -3,7 +3,38 @@
 **Status: PLANNING. Nothing in this file is built yet.** We edit it together until it is
 complete, then build from it. Last updated 2026-10-05.
 
-"Plan complete" means every box in section 10 is ticked. Until then, no code.
+"Plan complete" means every box in section 10 is ticked. Until then, no code. The boxes still
+open need input from the owner (section 10); everything else is written down.
+
+## 0. Start here (for whoever builds this)
+
+**What:** a Windows-only fork of Tilted Evolution (Skyrim Together Reborn) for a large modded Skyrim SE
+playthrough: **single player or two-player co-op from one launch**, Steam friends, shared world.
+
+**One bundle of our own: "Infectious Mods"** (section 4b). Everything we make ships as one package.
+Rename it freely; the name is only a label.
+
+**Mod tags:**
+
+| Tag | Meaning | Items today |
+|---|---|---|
+| `[MOD LIST]` | on the list as is | Skyrim SE + DLCs, SKSE64, Address Library, SkyrimTogether plugins |
+| `[MAKE]` | we write it | Infectious Mods (one bundle) |
+| `[COMPAT]` | as is, we build compatibility | SkyrimSoulsRE, Engine Fixes, ENB/ReShade |
+| `[MODIFY]` / `[REMAKE]` | we edit or rewrite | animation replacers (which ones: not chosen yet) |
+
+No gameplay mods have been named yet. Details and per-item plans: sections 6c and 6e.
+
+**Rules for the builder:**
+
+* Branch `claude/great-darwin-uc68jz` on `Infectiousdev/SkyrimTrueMP`. No PR unless asked.
+  `Infectiousdev/TheNexus` is out of scope.
+* "Done" means **observed working**. A Linux dev harness exists for the portable code (see
+  `docs/SKYRIMTRUEMP.md`); anything touching the game, Steam, D3D or Vortex can only be proven on
+  the owner's Windows machines. Say plainly what was not run.
+* Read first: `docs/SKYRIMTRUEMP.md` (what exists and what was verified), `NOTICE.md`
+  (licensing), `SKYRIMTRUEMP_CHANGES.md` (what differs from upstream), then this file.
+* Build order is section 9. The first Windows build is itself a test.
 
 ## 1. Vision (to be filled in together)
 
@@ -111,9 +142,9 @@ independently re-checked.
   `ActorValueService::OnDisconnected` carries a comment "this crashes sometimes, no clue why".
 * **Nothing hooks real saving.** There is no autosave, quicksave or new-game code in the client.
 * **Mod compatibility is ad hoc: no registry, no extension point** apart from the creature
-  behaviour data folder. Special cases: a launcher blocklist (EngineFixes, crash handlers,
-  Fraps, SpecialK/ReShade-SpecialK, NvCamera), SkyrimSoulsRE (one flag, fragile), MO2 detection,
-  SKSE, and hard-coded vanilla form ids.
+  behaviour data folder. Special cases: a launcher blocklist (the Stream crash handler,
+  Fraps, SpecialK/ReShade-SpecialK, NvCamera), an Engine Fixes grey list (allowed when its config is
+  right), SkyrimSoulsRE (one flag, fragile), MO2 detection, SKSE, and hard-coded vanilla form ids.
 * **Animation sync is keyed on behaviour-graph descriptors.** Modded graphs miss the table and
   fall back to a patching path. Nemesis/Pandora-style, DAR/OAR-style and creature-behaviour mods
   are the likely breakers.
@@ -140,7 +171,37 @@ Launcher app ──checks──> Skyrim folder, game version, SKSE, Address Libr
 * **One load order for both modes.** Plugins load at game start, so a launch that offers both
   single player and multiplayer necessarily uses the same plugins for both.
 
+### 4b. Infectious Mods: the one bundle of everything we make (decided)
+
+One package, one version, one name. It contains:
+
+| Part | What it is | Where it lives |
+|---|---|---|
+| `InfectiousMods.esp` | Our compatibility patches, the save-stamp globals (D9) and any scripts. One plugin, ESL-flagged if it fits | `Data/` |
+| Client modules | Compat registry, main-menu Single player / Multiplayer entry, client side of save sync | inside our client build (`SkyrimTogether.exe`) |
+| Server modules | Save barrier and desync detector, host-from-game | inside our server build |
+| Compat data | Creature behaviour descriptors, preset configs (Engine Fixes `.toml`, SkyrimSoulsRE `.ini`) | `Data/` |
+| Notices | Licence and attribution | `NOTICE.md` |
+
+* Licence: GPLv3-or-later like the fork. Ships in the SkyrimTrueMP release.
+* The launcher is a separate app in the same release (4c). It is a tool, not part of the mod list.
+* If the patch plugin outgrows one plugin it can split, but it stays one package.
+
+### 4c. Launcher screens (draft)
+
+1. **First run:** "Select your Skyrim folder", with the detected path pre-filled. Continue.
+2. **Checklist:** one row per requirement, tick or cross, one plain-language fix per cross.
+   Rows: game version (the pinned one), SKSE, Address Library, Infectious Mods, mod pack
+   (n of N files match), Engine Fixes config.
+3. **Home:** Play, Re-check, Change folder, pack version.
+4. **In game, main menu:** Single player | Multiplayer. Multiplayer offers Host, or Join with a
+   Steam friend or `steam:<id>`.
+5. **Errors:** say what is wrong, which file, and the one thing to do. No raw codes.
+
 ## 5. Open decisions (recommendation first)
+
+**Defaults are set below so the builder can proceed. The owner confirms or flips each one.**
+
 
 | # | Decision | Options | Recommendation |
 |---|---|---|---|
@@ -151,9 +212,10 @@ Launcher app ──checks──> Skyrim folder, game version, SKSE, Address Libr
 | D5 | Saves | A) coordinated saves: each player keeps their own file, saved at the same moment  B) one host world file plus a character import for the guest | **A** (section 6a). B needs a character export/import system that doesn't exist and is the riskiest thing on the list. |
 | D6 | `IS_MASTER` / non-default check | Keep, remove, or replace with the pack check | **Replace with the pack check; don't key behaviour off the branch name.** |
 | D7 | Three closed libraries still in the client | Ask permission / replace later / replace now | **Later, one at a time, tested on your machine.** |
-| D9 | Where the save stamp lives | A) a global in our plugin  B) a sidecar file next to the save  C) an SKSE co-save from a small plugin of ours | **Open.** Needs a look at what's cheapest to author and most robust to renamed or copied saves. |
+| D9 | Where the save stamp lives | A) a global in `InfectiousMods.esp`  B) a sidecar file next to the save  C) an SKSE co-save from a small plugin of ours | **A.** Lives inside the save, survives renames and copies, and keeps the bundle to one plugin with no extra DLL. |
 | D10 | Solo play inside a co-op world | A) co-op saves are co-op only  B) allow it, mark the save a "branch" | **A for v1:** worlds can't be merged, so a solo branch can never rejoin. |
 | D8 | Game version | Stay on the pinned version vs move | Collection must be built for the pinned version; the launcher must detect a mismatch before launching. |
+| D11 | Where the bundle is hosted | GitHub release vs a Nexus mod page | **GitHub release** while building (we control it); revisit when the Collection is assembled. |
 
 ## 6. Playthrough design: parking lot
 
@@ -291,20 +353,18 @@ special-cases. The "Licence" column stays empty until someone has read the mod's
 | `[MOD LIST]` | SKSE64, AE build matching the pinned game version | | framework | yes | | | | loaded by the client from the game folder | required |
 | `[MOD LIST]` | Address Library for SKSE Plugins ("All in one") | nexusmods.com/skyrimspecialedition/mods/32444 | framework | | yes | | | client shows an error without it | required |
 | ours | SkyrimTogether.esp, SkyrimTogetherQuestPatches.esp, scripts, creature behaviour files | | ships in this repo (`GameFiles/`) | | | | | part of the SkyrimTrueMP package, not a Nexus mod | required |
-| `[COMPAT]` | SkyrimSoulsRE | | UI | yes | yes | medium | | client special-cases it with one fragile flag; needs a proper compat module | to review |
+| `[COMPAT]` | SkyrimSoulsRE | | UI | yes | yes | medium | | un-pauses menus itself; the client switches its own un-pause off when it loads, through a fragile global flag (6e) | to review |
 | `[COMPAT]` | ENB, ReShade and other graphics injectors | | graphics | | | unknown | | never tested against the client's own D3D11 hooks | to test |
-| `[MODIFY]` (tentative) | SSE Engine Fixes | | engine fixes | yes | yes | high | not checked | the launcher blocks its DLL because it breaks the client's hooks, and rewrites its toml | to decide |
+| `[COMPAT]` | SSE Engine Fixes | | engine fixes | yes | yes | medium | not checked | **works today with required settings** (not blocked, see 6e); we ship a known-good config | to test |
 | `[MODIFY]` or `[REMAKE]` | Animation and behaviour replacers (Nemesis/Pandora, DAR/OAR style, creature behaviour mods) | | animation | | | high | not checked | break the client's animation sync; which ones we want is not decided | to decide |
-| `[MAKE]` | Save sync: stamp, connect check, desync detector, coordinated save (6a) | | ours | maybe (D9) | | | ours | needs an engine save hook, found on Windows | planned |
-| `[MAKE]` | Compat patch plugin(s) for the mod list | | ours | | | | ours | one per conflict we find (6b tier 1) | planned |
-| `[MAKE]` | Client compat registry (replaces the ad hoc special cases) | | ours | | | | ours | first user: SkyrimSoulsRE | planned |
-| `[MAKE]` | Main-menu Single player / Multiplayer entry (D3) | | ours | | | | ours | overlay button | planned |
+| `[MAKE]` | **Infectious Mods** (one bundle, section 4b): save sync, compat patch plugin, client compat registry, main-menu entry | | ours | no (D9=A) | | | ours (GPL) | engine save hook has to be found on Windows | planned |
 
 **At a glance:**
 
 * **Have:** Skyrim SE + DLCs, SKSE64, Address Library, SkyrimTogether plugins (ours).
-* **Make:** save sync, compat patch plugins, client compat registry, main-menu entry.
-* **Compat / modify / remake:** SkyrimSoulsRE, ENB/ReShade, Engine Fixes, animation replacers. No gameplay mods named yet.
+* **Make:** Infectious Mods (one bundle).
+* **Compat:** SkyrimSoulsRE, Engine Fixes, ENB/ReShade. **Modify or remake:** animation replacers.
+  No gameplay mods named yet.
 * Not mods, but also to build: the launcher app and host-from-game.
 
 Ideas and wishes (anything goes, we sort later):
@@ -338,9 +398,53 @@ For every mod: name and link, then answer these. The answers set the tag and the
 * **Runtime-created (0xFF-range) actors are deleted on connect.** Mods that spawn actors
   (summons, follower frameworks, spawners) lose them.
 * **The launcher blocks some injectors and overlays** (SkyrimSoulsRE is special-cased; SpecialK,
-  Fraps, NvCamera, EngineFixes are blocked). ENB, ReShade and other D3D hooks are **untested
+  Fraps, NvCamera are blocked; Engine Fixes is allowed with required settings). ENB, ReShade and other D3D hooks are **untested
   against the client's own D3D11 hooks**: treat them as unknown until run.
 * Menu mods can clash with the menus the client un-pauses and the overlay it draws.
+
+### 6e. Plans for the known compat / modify items
+
+Each one: what the code does today, what we change, and what "done" means (observed, two players).
+All of them need Windows and the mod installed to prove.
+
+**SkyrimSoulsRE `[COMPAT]`**
+* Today: SkyrimSoulsRE un-pauses menus itself. When `SkyrimSoulsRE.dll` loads, the launcher sets a
+  global flag and the client's own menu un-pause hook switches itself off (`UI.cpp:88`). The flag is
+  defined non-inline in a header and only links because the launcher uses `/FORCE:MULTIPLE`.
+* Plan: make it a registry entry in Infectious Mods (detect: the DLL; effect: bypass the menu
+  hook), same behaviour, no shared global. Ship a SkyrimSoulsRE config that keeps the Journal menu
+  paused, because un-pausing it is the known manual-save crash (to confirm against its settings).
+* Done when: in co-op, opening inventory, magic, stats and map keeps the world running for both
+  players; a Journal save works; repeated 10 times with no crash.
+
+**Engine Fixes `[COMPAT]`** (corrects an earlier claim that it is blocked)
+* Today: it is on the launcher's block list **and** a grey list, and the grey list wins. 6.x is
+  allowed if its config has `MemoryManager=false`, `ScaleformAllocator=false`, `MaxStdio=8192`;
+  the launcher asks permission and rewrites the file. 7.x is accepted as is. The client re-hooks
+  `FormAllocate` so its hook chains to Engine Fixes'.
+* Plan: pin the Engine Fixes version for the pack, ship the known-good `.toml` in Infectious Mods
+  so no prompt appears, add a "config OK" row to the launcher checklist.
+* Done when: launch with no prompt and a 30-minute two-player session with no crash. Watch the
+  harmless `SrtCrashFix64` popup if an animation-limit crash fix is also installed; keep only one.
+
+**ENB / ReShade `[COMPAT]`**
+* Today: nothing is tested. The block list covers SpecialK, Fraps and NvCamera, not ENB or ReShade.
+* Plan: Windows test matrix (client plus ENB, client plus ReShade): does the client's overlay render,
+  does the game start, does a session last. Pick **one** graphics stack for the pack. If it breaks,
+  add a registry entry or a load-order fix, or drop it.
+* Done when: overlay renders, no crash, 30-minute two-player session on the chosen stack.
+
+**Animation replacers `[MODIFY]` or `[REMAKE]`** (which ones: not chosen yet)
+* Today: animation sync uses known behaviour-graph descriptors. The data folder
+  `Data/SkyrimTogetherRebornBehaviors/<creature>/` is the extension point. A graph with no match
+  falls back to a patch path, and a mod with no matching signature is fail-listed for ten minutes
+  and desyncs.
+* Plan: (1) the owner picks the animation stack. (2) For each mod run the client, take the
+  signature miss from the log, generate descriptor data, ship it in Infectious Mods. (3) If the data
+  format can't express the change, modify the client's descriptor logic. (4) If the mod is closed and
+  still can't be handled, remake it from observed behaviour (6b rules).
+* Done when: each player sees the other's walk, combat, mount and spell animations correctly for
+  30 minutes, with no desync.
 
 ## 7. Things I can and cannot verify (so planning stays honest)
 
@@ -368,27 +472,36 @@ For every mod: name and link, then answer these. The answers set the tag and the
 
 ## 9. Milestones (draft)
 
-* **M0** Plan complete (this document).
-* **M1** Windows build compiles and the game reaches the main menu.
-* **M2** Launcher: link folder, checklist, launch.
-* **M3** Main-menu Single player / Multiplayer; Host and Join.
-* **M4** Pack: manifest from the Collection, verified by launcher and server.
-* **M4b** Shared saves: stamp and connect check, desync detector, coordinated save.
-* **M4c** Compatibility work on the list, tier by tier, each with its acceptance test.
-* **M5** Collection published and the playthrough dry-run with two players.
+| | Milestone | Done when (observed) |
+|---|---|---|
+| M0 | Plan complete | Section 10 all ticked |
+| M1 | Windows build | Everything builds on Windows, `TPTests` pass, the game reaches the main menu with the client attached |
+| M2 | Launcher | Folder linked once; checklist shows pass or fail for each row; Play starts the game |
+| M3 | Main-menu Single player / Multiplayer | Single player works with the client attached and disconnected; Host starts the server and shows `steam:<id>`; a friend joins |
+| M4 | Pack | Launcher and server both refuse a mismatched install and name the file |
+| M4b | Shared saves | Mismatched saves are refused at connect with an explanation; desync digest logged; a coordinated save writes two stamped files; both load and reconnect |
+| M4c | Compat work | Every item in 6e passes its test |
+| M5 | Dry run | Fresh machine, Collection installed through Vortex, folder linked, one-hour two-player session, save, quit, resume |
 
 ## 10. Plan-complete checklist
 
-- [ ] Vision: theme, scale and co-op shape written down (section 1)
-- [ ] D1 to D8 each decided
-- [ ] First version of the mod list with a co-op risk rating per mod (section 6)
-- [ ] Save approach chosen (D5, D9, D10) and the "what is shared" table filled in (6a)
-- [ ] Compatibility tier process agreed (6b), including the per-mod licence column
-- [ ] The first mod list is in the table with tiers guessed
-- [ ] Release branch and `IS_MASTER` behaviour decided (D6)
-- [ ] Launcher screens sketched: first run, checklist, error states, main menu
-- [ ] Windows test plan agreed (section 8)
-- [ ] Milestones ordered with what "done" is observed to mean for each
+Written down:
+
+- [x] Requirements R1 to R12 (section 2)
+- [x] What the code does today, including the save/sync/compat survey (section 3)
+- [x] Architecture, the Infectious Mods bundle and launcher screens (section 4)
+- [x] Decisions D1 to D11 with defaults set (section 5)
+- [x] Shared-save design (6a) and compatibility tiers and licence rules (6b)
+- [x] Mod tags, triage card, hard limits (6c, 6d)
+- [x] Plans for the known compat / modify items (6e)
+- [x] Windows test plan (section 8) and milestones with done criteria (section 9)
+
+Needs the owner (these are the only open items):
+
+- [ ] **Vision:** theme and tone of the playthrough (section 1)
+- [ ] **Gameplay mods:** the first batch, so each gets a tag, tier and test
+- [ ] **Confirm or flip the defaults** D1 to D11, and the two "your call" rows in 6a (discovered
+      locations / books / bounty, shared stash)
 
 ## Log
 
@@ -397,3 +510,7 @@ For every mod: name and link, then answer these. The answers set the tag and the
 * 2026-10-05: R9 to R12 added (compatibility work, large list, two players, shared world and
   saves). Code survey added to section 3; corrected my misreading of the Journal menu. Sections
   6a and 6b added.
+* 2026-10-05: tags COMPAT and MAKE added. Everything we make is bundled as "Infectious Mods"
+  (4b). Launcher screens (4c) and per-item compat plans (6e) added. Corrected the Engine Fixes
+  entry: it is grey-listed and works with required settings, not blocked. Defaults set for D1 to
+  D11 (D9 now A). Milestones have done-when criteria. Start-here section added for the builder.
