@@ -5,7 +5,7 @@ target("SteamTunnel")
     set_group("common")
     add_includedirs(".", {public = true})
     add_headerfiles("*.h")
-    add_files("Tunnel.cpp", "UdpSocket.cpp", "LoopbackLink.cpp", "GnsLink.cpp")
+    add_files("Tunnel.cpp", "UdpSocket.cpp", "LoopbackLink.cpp", "GnsLink.cpp", "TunnelManager.cpp", "SteamRuntime.cpp")
     add_packages("gamenetworkingsockets", {public = true})
     add_defines("STEAMNETWORKINGSOCKETS_STATIC_LINK")
 
@@ -14,5 +14,5 @@ target("SteamTunnel")
     end
 
     if is_plat("windows") then
-        add_syslinks("ws2_32")
+        add_syslinks("ws2_32", "winmm")
     end

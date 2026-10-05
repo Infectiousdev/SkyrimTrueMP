@@ -4,6 +4,8 @@
 
 #include <catch2/catch.hpp>
 
+#include "gns_runtime.h"
+
 #include <GnsLink.h>
 #include <Tunnel.h>
 #include <UdpSocket.h>
@@ -19,17 +21,6 @@ using namespace TrueMP::Steam;
 namespace
 {
 using Bytes = std::vector<uint8_t>;
-
-ISteamNetworkingSockets* Sockets()
-{
-    static ISteamNetworkingSockets* s_pSockets = []
-    {
-        SteamDatagramErrMsg error;
-        REQUIRE(GameNetworkingSockets_Init(nullptr, error));
-        return SteamNetworkingSockets();
-    }();
-    return s_pSockets;
-}
 
 struct Recorder final : ILinkListener
 {
@@ -76,11 +67,11 @@ uint16_t FreePort()
 
 TEST_CASE("GnsLink connects a client to a host and carries datagrams both ways", "[gnslink]")
 {
-    GnsLink host(Sockets(), [](PeerId) { return true; });
+    GnsLink host(TestSockets(), [](PeerId) { return true; });
     REQUIRE(host.ListenIp(FreePort()));
     REQUIRE(host.ListenPort() != 0);
 
-    GnsLink client(Sockets());
+    GnsLink client(TestSockets());
     REQUIRE(client.ConnectIp(Loopback(host.ListenPort()), kHostLabel));
 
     Recorder hostEvents, clientEvents;
@@ -108,10 +99,10 @@ TEST_CASE("GnsLink connects a client to a host and carries datagrams both ways",
 
 TEST_CASE("GnsLink refuses peers the admit function rejects", "[gnslink]")
 {
-    GnsLink host(Sockets(), [](PeerId) { return false; });
+    GnsLink host(TestSockets(), [](PeerId) { return false; });
     REQUIRE(host.ListenIp(FreePort()));
 
-    GnsLink client(Sockets());
+    GnsLink client(TestSockets());
     REQUIRE(client.ConnectIp(Loopback(host.ListenPort()), kHostLabel));
 
     Recorder hostEvents, clientEvents;
@@ -132,19 +123,19 @@ TEST_CASE("GnsLink refuses peers the admit function rejects", "[gnslink]")
 
 TEST_CASE("A host link without an admission policy refuses to listen", "[gnslink]")
 {
-    GnsLink noPolicy(Sockets());
+    GnsLink noPolicy(TestSockets());
     REQUIRE_FALSE(noPolicy.ListenIp(FreePort()));
     REQUIRE_FALSE(noPolicy.ListenP2P(0));
 }
 
 TEST_CASE("GnsLink reports a departing peer", "[gnslink]")
 {
-    GnsLink host(Sockets(), [](PeerId) { return true; });
+    GnsLink host(TestSockets(), [](PeerId) { return true; });
     REQUIRE(host.ListenIp(FreePort()));
 
     Recorder hostEvents;
     {
-        GnsLink client(Sockets());
+        GnsLink client(TestSockets());
         REQUIRE(client.ConnectIp(Loopback(host.ListenPort()), kHostLabel));
         Recorder clientEvents;
         REQUIRE(PumpUntil(
@@ -164,12 +155,12 @@ TEST_CASE("Two links in one process do not see each other's connections", "[gnsl
 {
     // RunCallbacks() services every connection on the interface, so each connection must
     // reach only the link that owns it.
-    GnsLink hostA(Sockets(), [](PeerId) { return true; });
-    GnsLink hostB(Sockets(), [](PeerId) { return true; });
+    GnsLink hostA(TestSockets(), [](PeerId) { return true; });
+    GnsLink hostB(TestSockets(), [](PeerId) { return true; });
     REQUIRE(hostA.ListenIp(FreePort()));
     REQUIRE(hostB.ListenIp(FreePort()));
 
-    GnsLink clientA(Sockets()), clientB(Sockets());
+    GnsLink clientA(TestSockets()), clientB(TestSockets());
     REQUIRE(clientA.ConnectIp(Loopback(hostA.ListenPort()), kHostLabel));
     REQUIRE(clientB.ConnectIp(Loopback(hostB.ListenPort()), kHostLabel));
 
@@ -204,11 +195,11 @@ TEST_CASE("The tunnel works over a real GameNetworkingSockets link", "[gnslink][
     UdpSocket game;
     REQUIRE(game.BindLoopback(0));
 
-    GnsLink hostLink(Sockets(), [](PeerId) { return true; });
+    GnsLink hostLink(TestSockets(), [](PeerId) { return true; });
     REQUIRE(hostLink.ListenIp(FreePort()));
     TunnelHost host(hostLink, {server.LocalPort(), 8}, [](PeerId) { return true; });
 
-    GnsLink clientLink(Sockets());
+    GnsLink clientLink(TestSockets());
     REQUIRE(clientLink.ConnectIp(Loopback(hostLink.ListenPort()), kHostLabel));
     TunnelClient client(clientLink, kHostLabel);
     REQUIRE(client.Start());
