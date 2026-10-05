@@ -9,14 +9,8 @@ jobs:
   build-windows:
     uses: ./.github/workflows/windows-playable-build.yml
 
-  build-linux:
-    uses: ./.github/workflows/linux.yml
-    with:
-      build-mode: release
-      upload-build-for-next-job: true
-
   publish:
-    needs: [build-windows, build-linux]
+    needs: [build-windows]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -25,7 +19,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: release-files
-          pattern: '{release-asset-linux-*,SkyrimTogether-*}'
+          pattern: 'SkyrimTogether-*'
           merge-multiple: true
 
       - name: Verify release assets
@@ -34,8 +28,6 @@ jobs:
           expected_assets=(
             "SkyrimTogether-${version}-windows-x64.zip"
             "SkyrimTogether-${version}-windows-x64-debug-symbols.zip"
-            "SkyrimTogetherServer-${version}-linux-amd64.tar.gz"
-            "SkyrimTogetherServer-${version}-linux-arm64.tar.gz"
           )
 
           for asset in "${expected_assets[@]}"; do
