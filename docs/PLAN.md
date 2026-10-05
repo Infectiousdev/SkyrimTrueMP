@@ -73,10 +73,50 @@ Still open (we decide these in the back and forth):
   when the build's git branch is named `master` (`IS_MASTER`, set in the root `xmake.lua`). It
   would fire constantly on a modlist. Several other behaviours (a debug console, some
   character-service code) also depend on `IS_MASTER`, so the release branch name matters.
-* **The pause (Journal) menu is disabled while connected**, because manual save crashed while
-  the game keeps running (`UI.cpp`, kAllowList comment).
+* **Correction to my first draft:** while connected the client *un-pauses* a list of menus
+  (inventory, magic, stats, ...) so the world keeps running. The Journal/pause menu is
+  deliberately **left out of that list**, with the comment "manual save crashing while
+  unpaused" (`UI.cpp:76-81`, hook at `:88`). So the Journal stays vanilla-paused and manual
+  saves work normally while connected. (Checked in the code.)
 * **Hosting today means running `SkyrimTogetherServer.exe` yourself** and joining it. Our Steam
   tunnel then offers a local server to friends.
+
+### Survey of saves, sync and compatibility (2026-10-05)
+
+A read-only code survey. I spot-checked the three claims the save design leans on
+(`UI.cpp`, the delete-on-connect in `CharacterService.cpp:306-322`, and the server quest log
+that is stored but never read back). The rest is the survey's reading of the code and is not
+independently re-checked.
+
+* **The server remembers nothing.** No persistence beyond a session: players are identified by
+  connection id; a returning player is a brand-new character. Characters, inventories and
+  quest logs live in memory only.
+* **Each player keeps their own PlayerCharacter and their own Skyrim save.** Sync is *deltas
+  from the moment of connecting*, largely only while in a party. The other player is a
+  temporary NPC built from appearance data and deleted on disconnect.
+* **Connecting uses whatever game is loaded.** No required save, no new game, and **nothing
+  checks that both players loaded matching saves**. The manifest checks mods only.
+* **Synced today:** actor values and health, inventory add/remove/equip, spells cast, container
+  contents and door state in loaded cells, quest start/stop and stage numbers, time, weather,
+  combat, movement and animation.
+* **Not synced (no code found):** perks, learned spells, shouts, quest objectives/aliases/globals/
+  script properties, crime and bounty, books read, discovered locations, containers and doors
+  outside loaded cells, anything a mod keeps in its own scripts. Quest stages that already
+  exist are not pushed to someone joining; only changes after connect travel.
+* **The client deletes temporary (0xFF-range) actors on connect.** Dynamic actors a save
+  contains, like summons or mod-spawned NPCs, may disappear.
+* **After disconnect, the other player's changes stay in your game and your save** (quest
+  stages, kills, container and door changes), so a co-op save is also a normal single-player
+  save of a changed world. Known loose ends: `ObjectService::OnDisconnected` is a TODO and
+  `ActorValueService::OnDisconnected` carries a comment "this crashes sometimes, no clue why".
+* **Nothing hooks real saving.** There is no autosave, quicksave or new-game code in the client.
+* **Mod compatibility is ad hoc: no registry, no extension point** apart from the creature
+  behaviour data folder. Special cases: a launcher blocklist (EngineFixes, crash handlers,
+  Fraps, SpecialK/ReShade-SpecialK, NvCamera), SkyrimSoulsRE (one flag, fragile), MO2 detection,
+  SKSE, and hard-coded vanilla form ids.
+* **Animation sync is keyed on behaviour-graph descriptors.** Modded graphs miss the table and
+  fall back to a patching path. Nemesis/Pandora-style, DAR/OAR-style and creature-behaviour mods
+  are the likely breakers.
 
 ## 4. Proposed architecture (draft)
 
@@ -108,9 +148,11 @@ Launcher app ──checks──> Skyrim folder, game version, SKSE, Address Libr
 | D2 | Launcher shell | A) ImGui in the existing exe  B) separate small app that starts the exe via `--exePath` | **B.** The UI shouldn't depend on loader code I can't test. |
 | D3 | Main-menu entry | A) a "Multiplayer" button in our overlay shown at the main menu  B) edit Skyrim's own menu | **A.** B conflicts with menu mods and is fragile. |
 | D4 | Hosting | A) player runs the server  B) the game/launcher starts it when you click Host | **B.** "Click Multiplayer, click Host" is the point. |
-| D5 | Saves | Same folder for both modes vs separate profile per mode | **Undecided: needs a Windows test.** I don't know how the client treats local saves while connected. |
+| D5 | Saves | A) coordinated saves: each player keeps their own file, saved at the same moment  B) one host world file plus a character import for the guest | **A** (section 6a). B needs a character export/import system that doesn't exist and is the riskiest thing on the list. |
 | D6 | `IS_MASTER` / non-default check | Keep, remove, or replace with the pack check | **Replace with the pack check; don't key behaviour off the branch name.** |
 | D7 | Three closed libraries still in the client | Ask permission / replace later / replace now | **Later, one at a time, tested on your machine.** |
+| D9 | Where the save stamp lives | A) a global in our plugin  B) a sidecar file next to the save  C) an SKSE co-save from a small plugin of ours | **Open.** Needs a look at what's cheapest to author and most robust to renamed or copied saves. |
+| D10 | Solo play inside a co-op world | A) co-op saves are co-op only  B) allow it, mark the save a "branch" | **A for v1:** worlds can't be merged, so a solo branch can never rejoin. |
 | D8 | Game version | Stay on the pinned version vs move | Collection must be built for the pinned version; the launcher must detect a mismatch before launching. |
 
 ## 6. Playthrough design: parking lot
@@ -125,6 +167,68 @@ How a mod interacts with co-op (my reading of how the engine works; **all of it 
   behaviour data per creature), mods that replace the player or NPC skeletons, other
   multiplayer mods, SKSE plugins that keep their own world state.
 * A mod that works in single player but desyncs in co-op must be recorded, with the symptom.
+
+### 6a. Shared world and saves (R12)
+
+**What the engine gives us.** A Skyrim save holds exactly one player character plus the whole
+changed world. In this design each player's game is a full copy of the world, and only changes
+travel between the two (survey above). So there is no single "world file" to share, and the
+other player's character can't simply be put inside your save.
+
+**Three ways to read "saving for both":**
+
+| Model | Idea | Verdict |
+|---|---|---|
+| **A. Coordinated saves** (recommended) | When either of you saves, both games save at the same logical moment, each into their own file. Both files are tagged as the same generation. Next time you each load your own latest generation. | Fits how the engine and client already work. Needs a save hook, a barrier protocol, a stamp and a check at connect. |
+| B. One host world, guest character imported | The host's save is the world; the guest's character is exported and applied into a copy of it. | A true shared file, but needs a character export/import system for perks, spells, skills, inventory, appearance. None exists. Most crash-prone. |
+| C. Copy one save to both | Whoever saves sends their file to the other. | Both players become the same character. Not viable. |
+
+**Model A in pieces** (nothing here exists yet):
+
+1. **A save choke point.** Route manual, auto and quick saves in a co-op session through one
+   coordinated save. This means finding and hooking the engine's save call, which needs the
+   game and a disassembler on Windows. It's the main unknown, and the existing "crash on manual
+   save while unpaused" comment shows saves are touchy.
+2. **A barrier protocol, two-phase.** Prepare, then both save, then commit only if both
+   succeeded. If one fails the generation is void. **Saves are never overwritten**, so a failed
+   or half-finished generation can be rolled back to the previous good one.
+3. **A stamp inside each save:** session id plus generation number (D9).
+4. **A check at connect.** Each client says which generation it loaded. If the two differ, the
+   connection is refused with a plain explanation of which save to load. Today nothing checks
+   this at all, and it's cheap, so it comes first.
+5. **A desync detector.** At each barrier both clients compute a digest of the world state we
+   do sync and compare. Without it, "same world" is a hope: the unsynced categories above drift
+   silently, and every mod that keeps state in scripts adds more drift. It is also how we'll
+   find which mods need compatibility work (6b).
+6. **Starting a co-op world:** both players start a **new game together** on the pack, which
+   gives an identical baseline. Taking an *existing* single-player save into co-op is not part
+   of v1: it needs Model B's character import. Say so if you want it earlier.
+7. **Solo and co-op saves stay separate** (D10). Co-op saves get a visible name prefix. A solo
+   branch of a co-op world can't be merged back, because worlds can't be merged.
+
+**What is shared and what isn't (to decide together).**
+
+| | Proposal |
+|---|---|
+| Quests, kills, container and door state, time, weather | Shared (partly synced today) |
+| Quest objectives, aliases, globals | Shared, **not synced today**: work item |
+| Each player's inventory, gold, skills, perks, spells, appearance | Per player |
+| Discovered locations, books read, bounty | **Your call**: shared or per player? |
+| A shared stash or shared gold | **Your call** |
+| Mod state kept in scripts | Case by case, see 6b |
+
+**Costs and risks, stated plainly.**
+
+* Large modded saves take seconds to write. Both players will see a pause at each coordinated
+  save, so the plan needs an on-screen "Saving..." state for both.
+* "The same world" is only as good as the sync coverage. The list will be large, so expect the
+  sync and compatibility work to be the bulk of the project, not the launcher.
+* Crash-on-disconnect (`ActorValueService`) and the temp-actor deletion on connect can corrupt
+  or lose things around a session boundary, so they are on the stability backlog before saves.
+* Everything in this section needs two Windows machines to prove.
+
+**Order I'd build it in** (cheapest and highest value first): the stamp and connect check, then
+the desync detector, then the barrier with a manual-save hook, then autosave/quicksave routing.
 
 ### 6b. Compatibility work (R9)
 
@@ -168,6 +272,8 @@ machines**, so the number of compatibility items is also a schedule decision.
 hash in the background and cache results by file size and modified time, so only changed
 files are re-read. Skyrim's plugin limits (254 full plugins plus ESL) cap the list as well.
 
+### 6c. Mod candidates and ideas
+
 Mod candidates table (we fill this together):
 
 | Mod | Nexus link | Category | SKSE? | Address Lib? | Co-op risk | Notes | Status |
@@ -196,6 +302,11 @@ Ideas and wishes (anything goes, we sort later):
 5. Disconnect and return to single player in the same session; note what is left behind.
 6. Mod mismatch: a friend with one different file is refused with the reason.
 7. Time the first-connect hashing on the real modlist.
+8. Saves: connect with two *different* saves and confirm nothing today notices (this proves the
+   gap). Then load a co-op save in single player and check what the other player's changes
+   left behind.
+9. Find the engine's save function and confirm manual, auto and quick saves all pass through it.
+10. Crash-on-disconnect: disconnect repeatedly in each scene type and record every crash.
 
 ## 9. Milestones (draft)
 
@@ -204,6 +315,8 @@ Ideas and wishes (anything goes, we sort later):
 * **M2** Launcher: link folder, checklist, launch.
 * **M3** Main-menu Single player / Multiplayer; Host and Join.
 * **M4** Pack: manifest from the Collection, verified by launcher and server.
+* **M4b** Shared saves: stamp and connect check, desync detector, coordinated save.
+* **M4c** Compatibility work on the list, tier by tier, each with its acceptance test.
 * **M5** Collection published and the playthrough dry-run with two players.
 
 ## 10. Plan-complete checklist
@@ -211,7 +324,9 @@ Ideas and wishes (anything goes, we sort later):
 - [ ] Vision: theme, scale and co-op shape written down (section 1)
 - [ ] D1 to D8 each decided
 - [ ] First version of the mod list with a co-op risk rating per mod (section 6)
-- [ ] Save handling approach chosen (D5), with the Windows test it needs
+- [ ] Save approach chosen (D5, D9, D10) and the "what is shared" table filled in (6a)
+- [ ] Compatibility tier process agreed (6b), including the per-mod licence column
+- [ ] The first mod list is in the table with tiers guessed
 - [ ] Release branch and `IS_MASTER` behaviour decided (D6)
 - [ ] Launcher screens sketched: first run, checklist, error states, main menu
 - [ ] Windows test plan agreed (section 8)
@@ -221,3 +336,6 @@ Ideas and wishes (anything goes, we sort later):
 
 * 2026-10-05: created. Requirements R1 to R8 recorded. Single player or co-op from the main
   menu added as R3.
+* 2026-10-05: R9 to R12 added (compatibility work, large list, two players, shared world and
+  saves). Code survey added to section 3; corrected my misreading of the Journal menu. Sections
+  6a and 6b added.
