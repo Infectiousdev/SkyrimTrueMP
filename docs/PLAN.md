@@ -274,11 +274,24 @@ files are re-read. Skyrim's plugin limits (254 full plugins plus ESL) cap the li
 
 ### 6c. Mod candidates and ideas
 
-Mod candidates table (we fill this together):
+**Tags** (every mod gets exactly one):
 
-| Mod | Nexus link | Category | SKSE? | Address Lib? | Co-op risk | Notes | Status |
-|---|---|---|---|---|---|---|---|
-| | | | | | | | |
+* `[MOD LIST]`: goes on the list as it is. A client compatibility module may still be needed.
+* `[MODIFY]`: we edit or fork it (open source, or its permissions allow).
+* `[REMAKE]`: we write our own version from its observed behaviour.
+
+No gameplay mods have been named yet. The rows below are only what the code already requires or
+special-cases. The "Licence" column stays empty until someone has read the mod's permissions.
+
+| Tag | Mod | Nexus link | Category | SKSE? | Address Lib? | Co-op risk | Licence | Notes | Status |
+|---|---|---|---|---|---|---|---|---|---|
+| `[MOD LIST]` | Skyrim SE and the official DLCs | | base game | | | | | pinned version, see section 3 | required |
+| `[MOD LIST]` | SKSE64, AE build matching the pinned game version | | framework | yes | | | | loaded by the client from the game folder | required |
+| `[MOD LIST]` | Address Library for SKSE Plugins ("All in one") | nexusmods.com/skyrimspecialedition/mods/32444 | framework | | yes | | | client shows an error without it | required |
+| ours | SkyrimTogether.esp, SkyrimTogetherQuestPatches.esp, scripts, creature behaviour files | | ships in this repo (`GameFiles/`) | | | | | part of the SkyrimTrueMP package, not a Nexus mod | required |
+| `[MOD LIST]` | SkyrimSoulsRE | | UI | yes | yes | medium | | client special-cases it with one fragile flag; needs a proper compat module | to review |
+| `[MODIFY]` (tentative) | SSE Engine Fixes | | engine fixes | yes | yes | high | not checked | the launcher blocks its DLL because it breaks the client's hooks, and rewrites its toml | to decide |
+| `[MODIFY]` or `[REMAKE]` | Animation and behaviour replacers (Nemesis/Pandora, DAR/OAR style, creature behaviour mods) | | animation | | | high | not checked | break the client's animation sync; which ones we want is not decided | to decide |
 
 Ideas and wishes (anything goes, we sort later):
 
