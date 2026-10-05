@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+
 #include <AdminMessages/Message.h>
 #include <Messages/AuthenticationRequest.h>
 #include <Messages/Message.h>
@@ -123,6 +125,9 @@ private:
 
     TiltedPhoques::Set<ConnectionId_t> m_adminSessions;
     TiltedPhoques::Map<ConnectionId_t, entt::entity> m_connectionToEntity;
+
+    // SkyrimTrueMP: mod manifest of the first player on the server; empty while nobody is connected.
+    std::optional<ModManifest> m_referenceManifest;
 
     UniquePtr<World> m_pWorld;
 

@@ -46,6 +46,11 @@ Console::Setting bSyncPlayerCalendar{"Gameplay:bSyncPlayerCalendar", "Syncs up a
 Console::Setting bAutoPartyJoin{"Gameplay:bAutoPartyJoin", "Join parties automatically, as long as there is only one party in the server", true};
 // ModPolicy Stuff
 Console::Setting bEnableModCheck{"ModPolicy:bEnableModCheck", "Refuse clients whose mods do not match Data/loadorder.txt", false, Console::SettingsFlags::kLocked};
+// SkyrimTrueMP: the first player to join becomes the reference; later players must have identical plugin files
+// (name, size, SHA-256) in the same load order, plus identical SKSE plugins and archive sizes.
+Console::Setting bEnableManifestCheck{"ModPolicy:bEnableManifestCheck",
+                                      "Refuse players whose installed mods (files, versions and load order) differ from the first player on the server", true,
+                                      Console::SettingsFlags::kLocked};
 Console::Setting bAllowSKSE{"ModPolicy:bAllowSKSE", "Allow players using SKSE to join. Applies even when bEnableModCheck is off", true, Console::SettingsFlags::kLocked};
 Console::Setting bAllowMO2{"ModPolicy:bAllowMO2", "Allow players using Mod Organizer 2 to join. Applies even when bEnableModCheck is off", true, Console::SettingsFlags::kLocked};
 
@@ -108,7 +113,8 @@ Console::Command<> ShowMoPoStatus(
             return aToggle ? "yes" : "no";
         };
 
-        spdlog::get("ConOut")->info("Modcheck enabled: {}\nSKSE allowed: {}\nMO2 allowed: {}", formatStatus(bEnableModCheck), formatStatus(bAllowSKSE), formatStatus(bAllowMO2));
+        spdlog::get("ConOut")->info("Modcheck enabled: {}\nManifest check enabled: {}\nSKSE allowed: {}\nMO2 allowed: {}", formatStatus(bEnableModCheck), formatStatus(bEnableManifestCheck), formatStatus(bAllowSKSE),
+                                    formatStatus(bAllowMO2));
     });
 
 // -- Constants --
@@ -655,6 +661,13 @@ void GameServer::OnDisconnection(const ConnectionId_t aConnectionId, EDisconnect
         m_pWorld->GetDispatcher().update();
 
         m_pWorld->GetPlayerManager().Remove(pPlayer);
+
+        // An empty server has no reference; the next group of players may bring a different mod list.
+        if (m_pWorld->GetPlayerManager().Count() == 0 && m_referenceManifest)
+        {
+            spdlog::info("ModPolicy: last player left, mod reference cleared");
+            m_referenceManifest.reset();
+        }
     }
 
     UpdateTitle();
@@ -798,6 +811,18 @@ void GameServer::SendToPartyInRange(const ServerMessage& acServerMessage, const 
     }
 }
 
+static const char* ModManifestReasonText(const ModManifest::Issue::Reason aReason) noexcept
+{
+    switch (aReason)
+    {
+    case ModManifest::Issue::Reason::kMissing: return "missing";
+    case ModManifest::Issue::Reason::kExtra: return "not on the server's reference";
+    case ModManifest::Issue::Reason::kContentDiffers: return "different version/content";
+    case ModManifest::Issue::Reason::kOutOfOrder: return "different load order";
+    }
+    return "unknown";
+}
+
 static String PrettyPrintModList(const Vector<Mods::Entry>& acMods)
 {
     String text;
@@ -931,6 +956,46 @@ void GameServer::HandleAuthenticationRequest(const ConnectionId_t aConnectionId,
             }
         }
 
+        if (bEnableManifestCheck)
+        {
+            // A client that sends no (or an unreadable) manifest cannot prove what it has installed.
+            if (!acRequest->ManifestValid || acRequest->Manifest.Entries.empty())
+            {
+                spdlog::info("ModPolicy: refusing connection {:x} '{}' because it sent no valid mod manifest", aConnectionId, remoteAddress);
+                sendKick(RT::kModsMismatch);
+                return;
+            }
+
+            if (m_referenceManifest)
+            {
+                const auto issues = ModManifest::Compare(*m_referenceManifest, acRequest->Manifest);
+                if (!issues.empty())
+                {
+                    spdlog::info("ModPolicy: refusing connection {:x} '{}' because its mods differ from the first player's ({} difference(s)):", aConnectionId, remoteAddress, issues.size());
+                    for (const auto& issue : issues)
+                        spdlog::info("ModPolicy:   {} - {}", ModManifestReasonText(issue.Why), issue.Name.c_str());
+
+                    // The original client error screen lists UserMods entries: id 0 reads "install this",
+                    // anything else "remove this". Mirror the issues there for clients with an older UI;
+                    // load order problems have no equivalent and are only in ManifestIssues.
+                    for (const auto& issue : issues)
+                    {
+                        if (issue.Why == ModManifest::Issue::Reason::kOutOfOrder)
+                            continue;
+
+                        Mods::Entry entry;
+                        entry.Filename = issue.Name;
+                        entry.Id = issue.Why == ModManifest::Issue::Reason::kExtra ? 1 : 0;
+                        entry.IsLite = false;
+                        serverResponse.UserMods.ModList.push_back(std::move(entry));
+                    }
+                    serverResponse.ManifestIssues = issues;
+                    sendKick(RT::kModsMismatch);
+                    return;
+                }
+            }
+        }
+
         // Note: to lower traffic we only send the mod ids the user can fix in order as other ids will lead to a
         // null form id anyway
         Vector<String> playerMods;
@@ -967,6 +1032,13 @@ void GameServer::HandleAuthenticationRequest(const ConnectionId_t aConnectionId,
             Kick(aConnectionId);
             m_pWorld->GetPlayerManager().Remove(pPlayer);
             return;
+        }
+
+        // The first accepted player defines what everyone after them must match.
+        if (bEnableManifestCheck && !m_referenceManifest)
+        {
+            m_referenceManifest = acRequest->Manifest;
+            spdlog::info("ModPolicy: '{}' is the mod reference for this session ({} files)", pPlayer->GetUsername().c_str(), m_referenceManifest->Entries.size());
         }
 
         serverResponse.PlayerId = pPlayer->GetId();
