@@ -4,7 +4,7 @@
 #include "Events/DisconnectedEvent.h"
 
 #include <atomic>
-#include <Client.hpp>
+#include <Client.h>
 
 struct ImguiService;
 struct UpdateEvent;
@@ -14,7 +14,7 @@ struct NotifySettingsChange;
 
 struct World;
 
-using TiltedPhoques::Client;
+using TrueMP::Net::Client;
 
 /**
  * @brief Handles communication with the server.

@@ -34,7 +34,7 @@ target(name)
         "CommonLib",
         "BaseLib",
         "ImGuiImpl",
-        "TiltedConnect",
+        "TrueMPNet",
         "TiltedReverse",
         "TiltedHooks",
         "TiltedUi",

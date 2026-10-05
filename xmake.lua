@@ -31,11 +31,33 @@ if has_config("unitybuild") then
     add_rules("c++.unity_build", {batchsize = 12})
 end
 
+-- The game's core library (containers, buffers, serialization, allocators, ...) is this project's
+-- own implementation in Code/core.
+--
+-- Every target compiles against the live headers through this include directory, so editing one takes
+-- effect on the next build. (Directories added with add_includedirs are searched before a package's
+-- system include directory, which is what keeps the copy below from ever being preferred.)
+add_includedirs(path.join(os.scriptdir(), "Code", "core"))
+
+-- The same headers are also offered as a package named "tiltedcore", because the third-party hook
+-- libraries in Libraries/ ask for that name in their own build files. Nothing is downloaded: the
+-- package is just a copy of Code/core, and brings the dependencies the headers need.
+package("tiltedcore")
+    set_kind("library", {headeronly = true})
+    set_description("SkyrimTrueMP core library: header-only, original implementation")
+    add_deps("mimalloc", "hopscotch-map")
+    set_sourcedir(path.join(os.scriptdir(), "Code", "core"))
+    set_policy("package.install_always", true)
+    on_install(function (package)
+        os.cp("TiltedCore", package:installdir("include"))
+    end)
+package_end()
+
 -- direct dependencies version pinning 
 add_requires(
     "entt v3.10.0", 
     "recastnavigation v1.6.0", 
-    "tiltedcore 0.2.9", 
+    "tiltedcore", 
     "spdlog v1.13.0", 
     "cpp-httplib 0.14.0",
     "gtest v1.14.0", 
@@ -51,7 +73,19 @@ if is_plat("windows") then
     )
 end
 
+-- Packages used by the network library, the tunnel and the tests. They used to be declared by
+-- the third-party TiltedConnect build file, which this fork no longer uses.
+add_requires(
+    "hopscotch-map v2.3.1",
+    "snappy 1.1.10",
+    "gamenetworkingsockets v1.4.1",
+    "catch2 2.13.9",
+    "libuv v1.48.0"
+)
+
 -- dependencies' dependencies version pinning
+add_requireconfs("*.protobuf*", { version = "26.1", override = true })
+add_requireconfs("**.abseil*", { version = "20250127.1", override = true })
 add_requireconfs("*.mimalloc", { version = "2.2.4", override = true })
 add_requireconfs("*.cmake", { version = "3.30.2", override = true })
 add_requireconfs("*.openssl", { version = "1.1.1-w", override = true })
@@ -96,6 +130,11 @@ end)
 
 if is_mode("debug") then
     add_defines("DEBUG")
+end
+
+-- (also set by the removed TiltedConnect build file for every target)
+if is_mode("release") then
+    add_defines("NDEBUG")
 end
 
 if is_plat("windows") then

@@ -13,7 +13,7 @@ target("Admin")
     add_files(
         "**.cpp",
         "admin.rc")
-    add_deps("CommonLib", "AdminProtocol", "TiltedConnect")
+    add_deps("CommonLib", "AdminProtocol", "TrueMPNet")
 
     add_deps("SkyrimEncoding")
 

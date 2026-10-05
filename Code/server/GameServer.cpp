@@ -1,6 +1,5 @@
 ﻿#include <Components.h>
 #include <GameServer.h>
-#include <Packet.hpp>
 
 #include <Events/AdminPacketEvent.h>
 #include <Events/CharacterRemoveEvent.h>
@@ -10,7 +9,6 @@
 #include <Events/PlayerLeaveCellEvent.h>
 #include <Events/PlayerLeaveEvent.h>
 #include <Events/UpdateEvent.h>
-#include <steam/isteamnetworkingutils.h>
 
 #include <AdminMessages/AdminSessionOpen.h>
 #include <AdminMessages/ClientAdminMessageFactory.h>
@@ -679,12 +677,10 @@ void GameServer::Send(const ConnectionId_t aConnectionId, const ServerMessage& a
 
     Buffer buffer(1 << 20);
     Buffer::Writer writer(&buffer);
-    writer.WriteBits(0, 8); // Skip the first byte as it is used by packet
 
     acServerMessage.Serialize(writer);
 
-    TiltedPhoques::PacketView packet(reinterpret_cast<char*>(buffer.GetWriteData()), static_cast<uint32_t>(writer.Size()));
-    Server::Send(aConnectionId, &packet);
+    Server::Send(aConnectionId, buffer.GetData(), writer.Size());
 
     s_allocator.Reset();
 }
@@ -695,12 +691,10 @@ void GameServer::Send(ConnectionId_t aConnectionId, const ServerAdminMessage& ac
 
     Buffer buffer(1 << 20);
     Buffer::Writer writer(&buffer);
-    writer.WriteBits(0, 8); // Skip the first byte as it is used by packet
 
     acServerMessage.Serialize(writer);
 
-    TiltedPhoques::PacketView packet(reinterpret_cast<char*>(buffer.GetWriteData()), static_cast<uint32_t>(writer.Size()));
-    Server::Send(aConnectionId, &packet);
+    Server::Send(aConnectionId, buffer.GetData(), writer.Size());
 
     s_allocator.Reset();
 }
@@ -843,10 +837,8 @@ bool GameServer::ValidateAuthParams(ConnectionId_t aConnectionId, const UniquePt
 
 void GameServer::HandleAuthenticationRequest(const ConnectionId_t aConnectionId, const UniquePtr<AuthenticationRequest>& acRequest)
 {
-    const auto info = GetConnectionInfo(aConnectionId);
-
-    char remoteAddress[48]{};
-    info.m_addrRemote.ToString(remoteAddress, 48, false);
+    const std::string remoteAddressText = GetRemoteAddress(aConnectionId);
+    const char* remoteAddress = remoteAddressText.c_str();
 
     AuthenticationResponse serverResponse;
     serverResponse.Version = BUILD_COMMIT;

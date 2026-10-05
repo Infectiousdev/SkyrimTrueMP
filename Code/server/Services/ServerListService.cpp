@@ -73,7 +73,7 @@ void ServerListService::Announce() noexcept
 
 void ServerListService::PostAnnouncement(String acName, String acDesc, String acIconUrl, uint16_t aPort, uint16_t aTick,
                                          uint16_t aPlayerCount, uint16_t aPlayerMaxCount, String acTagList,
-                                         bool aPublic, bool aPassword, int32 aFlags) noexcept
+                                         bool aPublic, bool aPassword, int32_t aFlags) noexcept
 {
     const std::string kVersion{BUILD_COMMIT};
     const httplib::Params params{

@@ -7,7 +7,7 @@
 #include <Messages/Message.h>
 #include "Overlay.h"
 
-#include <Client.hpp>
+#include <Client.h>
 
 using namespace Magnum;
 using namespace Math::Literals;
@@ -22,7 +22,7 @@ enum class ConnectionState
 struct AdminSessionOpen;
 struct ServerLogs;
 
-struct AdminApp : Platform::Application, TiltedPhoques::Client
+struct AdminApp : Platform::Application, TrueMP::Net::Client
 {
     explicit AdminApp(const Arguments& arguments);
 

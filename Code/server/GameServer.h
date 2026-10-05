@@ -7,8 +7,8 @@
 #include <Messages/Message.h>
 #include <World.h>
 
-using TiltedPhoques::ConnectionId_t;
-using TiltedPhoques::Server;
+using TrueMP::Net::ConnectionId_t;
+using TrueMP::Net::Server;
 using TiltedPhoques::String;
 
 struct AuthenticationRequest;
@@ -101,7 +101,7 @@ protected:
     bool ValidateAuthParams(ConnectionId_t aConnectionId, const UniquePtr<AuthenticationRequest>& acRequest);
     void HandleAuthenticationRequest(ConnectionId_t aConnectionId, const UniquePtr<AuthenticationRequest>& acRequest);
 
-    // Implement TiltedPhoques::Server
+    // Implement TrueMP::Net::Server
     void OnUpdate() override;
     void OnConsume(const void* apData, uint32_t aSize, ConnectionId_t aConnectionId) override;
     void OnConnection(ConnectionId_t aHandle) override;

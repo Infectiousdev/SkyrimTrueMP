@@ -20,7 +20,6 @@
 #include <Messages/AuthenticationRequest.h>
 #include <Messages/ServerMessageFactory.h>
 #include <Messages/NotifySettingsChange.h>
-#include <Packet.hpp>
 
 #include <ScriptExtender.h>
 #include <Services/DiscordService.h>
@@ -32,8 +31,6 @@
 // #include <imgui_internal.h>
 
 static constexpr wchar_t kMO2DllName[] = L"usvfs_x64.dll";
-
-using TiltedPhoques::Packet;
 
 TransportService::TransportService(World& aWorld, entt::dispatcher& aDispatcher) noexcept
     : m_world(aWorld)
@@ -86,12 +83,10 @@ bool TransportService::Send(const ClientMessage& acMessage) const noexcept
 
         Buffer buffer(1 << 20);
         Buffer::Writer writer(&buffer);
-        writer.WriteBits(0, 8); // Write first byte as packet needs it
 
         acMessage.Serialize(writer);
-        TiltedPhoques::PacketView packet(reinterpret_cast<char*>(buffer.GetWriteData()), writer.Size());
 
-        Client::Send(&packet);
+        Client::Send(buffer.GetData(), writer.Size());
 
         return true;
     }

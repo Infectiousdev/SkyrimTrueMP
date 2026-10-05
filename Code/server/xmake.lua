@@ -24,7 +24,7 @@ local function build_server()
         "ESLoader",
         "BaseLib",
         "AdminProtocol",
-        "TiltedConnect"
+        "TrueMPNet"
     )
     add_packages(
         "gamenetworkingsockets",

@@ -1,5 +1,4 @@
 #include "AdminApp.h"
-#include "Packet.hpp"
 #include "AdminMessages/AdminShutdownRequest.h"
 #include "AdminMessages/ServerLogs.h"
 #include "AdminMessages/ServerAdminMessageFactory.h"
@@ -58,12 +57,10 @@ bool AdminApp::Send(const ClientAdminMessage& acMessage) const noexcept
 
         TiltedPhoques::Buffer buffer(1 << 16);
         TiltedPhoques::Buffer::Writer writer(&buffer);
-        writer.WriteBits(0, 8); // Write first byte as packet needs it
 
         acMessage.Serialize(writer);
-        TiltedPhoques::PacketView packet(reinterpret_cast<char*>(buffer.GetWriteData()), writer.Size());
 
-        Client::Send(&packet);
+        Client::Send(buffer.GetData(), writer.Size());
 
         return true;
     }
@@ -86,12 +83,10 @@ bool AdminApp::Send(const ClientMessage& acMessage) const noexcept
 
         TiltedPhoques::Buffer buffer(1 << 16);
         TiltedPhoques::Buffer::Writer writer(&buffer);
-        writer.WriteBits(0, 8); // Write first byte as packet needs it
 
         acMessage.Serialize(writer);
-        TiltedPhoques::PacketView packet(reinterpret_cast<char*>(buffer.GetWriteData()), writer.Size());
 
-        Client::Send(&packet);
+        Client::Send(buffer.GetData(), writer.Size());
 
         return true;
     }

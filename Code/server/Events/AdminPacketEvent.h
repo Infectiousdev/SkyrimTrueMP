@@ -1,6 +1,6 @@
 #pragma once
 
-using TiltedPhoques::ConnectionId_t;
+using TrueMP::Net::ConnectionId_t;
 
 /**
  * @brief Wrapper for admin messages.

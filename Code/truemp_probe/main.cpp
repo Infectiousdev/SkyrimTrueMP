@@ -7,8 +7,7 @@
 //
 // Exit code: 0 accepted, 10 refused for mods, 11 refused for another reason, 12 no answer.
 
-// Include order matters: TiltedConnect's headers expect <chrono>, and the message headers
-// expect TiltedCore, to come first.
+// Include order matters: the message headers expect TiltedCore to come first.
 #include <chrono>
 
 #include <TiltedCore/Allocator.hpp>
@@ -24,11 +23,10 @@
 #include <glm/vec3.hpp>
 
 #include <BuildInfo.h>
-#include <Client.hpp>
+#include <Client.h>
 #include <Messages/AuthenticationRequest.h>
 #include <Messages/AuthenticationResponse.h>
 #include <Messages/ServerMessageFactory.h>
-#include <Packet.hpp>
 #include <Structs/ModManifestBuilder.h>
 
 #include <LoopbackLink.h>
@@ -105,7 +103,7 @@ const char* KindText(ModManifest::Kind aKind)
     return "?";
 }
 
-struct Probe final : TiltedPhoques::Client
+struct Probe final : TrueMP::Net::Client
 {
     explicit Probe(Options aOptions)
         : Options_(std::move(aOptions))
@@ -146,10 +144,8 @@ struct Probe final : TiltedPhoques::Client
         TiltedPhoques::ScopedAllocator scoped{s_allocator};
         TiltedPhoques::Buffer buffer(1 << 20);
         TiltedPhoques::Buffer::Writer writer(&buffer);
-        writer.WriteBits(0, 8); // the packet layer owns the first byte
         request.Serialize(writer);
-        TiltedPhoques::PacketView packet(reinterpret_cast<char*>(buffer.GetWriteData()), writer.Size());
-        Send(&packet);
+        Send(buffer.GetData(), writer.Size());
         s_allocator.Reset();
     }
 
@@ -233,7 +229,7 @@ int main(int argc, char** argv)
         }
     }
 
-    if (!probe.ConnectByIp(endpoint))
+    if (!probe.Connect(endpoint))
     {
         std::fprintf(stderr, "probe: could not start connecting to %s\n", endpoint.c_str());
         return 12;

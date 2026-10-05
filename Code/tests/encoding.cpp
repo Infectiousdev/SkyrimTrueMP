@@ -213,7 +213,7 @@ TEST_CASE("Differential structures", "[encoding.differential]")
     {
         ActionEvent sendAction, recvAction;
 
-        TP_UNUSED(StringCache::Get().Add("test"))
+        TP_UNUSED(StringCache::Get().Add("test"));
 
         sendAction.ActionId = 42;
         sendAction.State1 = 6547;

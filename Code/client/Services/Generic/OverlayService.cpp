@@ -463,9 +463,9 @@ void OverlayService::RunDebugDataUpdates() noexcept
     auto steamStats = m_transport.GetConnectionStatus();
 
     auto pArguments = CefListValue::Create();
-    pArguments->SetInt(0, steamStats.m_flOutPacketsPerSec);
-    pArguments->SetInt(1, steamStats.m_flInPacketsPerSec);
-    pArguments->SetInt(2, steamStats.m_nPing);
+    pArguments->SetInt(0, steamStats.OutPacketsPerSec);
+    pArguments->SetInt(1, steamStats.InPacketsPerSec);
+    pArguments->SetInt(2, steamStats.PingMs);
     pArguments->SetInt(3, 0);
     pArguments->SetInt(4, internalStats.SentBytes);
     pArguments->SetInt(5, internalStats.RecvBytes);
