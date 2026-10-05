@@ -25,6 +25,10 @@
 #include <ScriptExtender.h>
 #include <Services/DiscordService.h>
 
+#include <Structs/ModManifestBuilder.h>
+
+#include <filesystem>
+
 // #include <imgui_internal.h>
 
 static constexpr wchar_t kMO2DllName[] = L"usvfs_x64.dll";
@@ -67,7 +71,9 @@ TransportService::TransportService(World& aWorld, entt::dispatcher& aDispatcher)
 
 bool TransportService::Send(const ClientMessage& acMessage) const noexcept
 {
-    static thread_local ScratchAllocator s_allocator(1 << 18);
+    // SkyrimTrueMP: the authentication request now carries a mod manifest, which for a large mod list is far
+    // bigger than the 64 KiB these used to be. GameNetworkingSockets caps a message at 512 KiB.
+    static thread_local ScratchAllocator s_allocator(1 << 22);
 
     struct ScopedReset
     {
@@ -78,7 +84,7 @@ bool TransportService::Send(const ClientMessage& acMessage) const noexcept
     {
         ScopedAllocator _{s_allocator};
 
-        Buffer buffer(1 << 16);
+        Buffer buffer(1 << 20);
         Buffer::Writer writer(&buffer);
         writer.WriteBits(0, 8); // Write first byte as packet needs it
 
@@ -136,6 +142,10 @@ void TransportService::OnConnected()
 
     auto* const cpModManager = ModManager::Get();
 
+    // SkyrimTrueMP: fingerprint the installed mods (file contents, not just names) so the server can
+    // require every player to have an identical install. Digests are cached after the first connect.
+    TrueMP::ModManifestBuilder manifestBuilder(std::filesystem::current_path() / "Data");
+
     for (auto* pMod : cpModManager->mods)
     {
         if (!pMod->IsLoaded())
@@ -145,7 +155,14 @@ void TransportService::OnConnected()
         entry.Id = pMod->GetId();
         entry.IsLite = pMod->IsLite();
         entry.Filename = pMod->filename;
+
+        manifestBuilder.AddPlugin(entry.Filename);
     }
+
+    manifestBuilder.AddSksePluginsAndArchives();
+    for (const auto& failure : manifestBuilder.Failures())
+        spdlog::error("Could not read '{}' to build the mod manifest; the server will refuse this connection", failure.c_str());
+    request.Manifest = manifestBuilder.Build();
 
     auto& modSystem = m_world.GetModSystem();
     if (pPlayer->GetWorldSpace())
@@ -230,6 +247,19 @@ void TransportService::HandleAuthenticationResponse(const AuthenticationResponse
             if (!first)
                 ErrorInfo += ",";
             ErrorInfo += fmt::format("[\"{}\",\"{}\"]", m.Filename.c_str(), m.Id);
+            first = false;
+        }
+        ErrorInfo += "]";
+
+        // SkyrimTrueMP: why the mod lists differ. kind: 0 plugin, 1 SKSE plugin, 2 archive.
+        // reason: 0 missing, 1 extra, 2 content differs, 3 load order.
+        ErrorInfo += ", \"issues\": [";
+        first = true;
+        for (const auto& issue : acMessage.ManifestIssues)
+        {
+            if (!first)
+                ErrorInfo += ",";
+            ErrorInfo += fmt::format("{{\"kind\":{},\"reason\":{},\"name\":\"{}\"}}", static_cast<int>(issue.Type), static_cast<int>(issue.Why), issue.Name.c_str());
             first = false;
         }
         ErrorInfo += "]}";
