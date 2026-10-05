@@ -1,3 +1,7 @@
+> **SkyrimTrueMP** is a fork of Tilted Evolution that adds a content-hash mod check
+> and joining through Steam friends. See [`docs/SKYRIMTRUEMP.md`](docs/SKYRIMTRUEMP.md),
+> [`NOTICE.md`](NOTICE.md) and [`SKYRIMTRUEMP_CHANGES.md`](SKYRIMTRUEMP_CHANGES.md).
+
 # Tilted Online
 ![Build status](https://github.com/tiltedphoques/TiltedEvolution/workflows/Build%20windows/badge.svg?branch=master) [![Build linux](https://github.com/tiltedphoques/TiltedEvolution/actions/workflows/linux.yml/badge.svg)](https://github.com/tiltedphoques/TiltedEvolution/actions/workflows/linux.yml)  [![Discord](https://img.shields.io/discord/247835175860305931.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/skyrimtogether)
 

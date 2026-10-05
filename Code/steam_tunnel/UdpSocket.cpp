@@ -77,7 +77,7 @@ bool UdpSocket::BindLoopback(uint16_t aPort)
     EnsureNetworking();
     Close();
 
-    const auto socketHandle = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    auto socketHandle = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (socketHandle == static_cast<decltype(socketHandle)>(kInvalid))
         return false;
     m_socket = static_cast<Handle>(socketHandle);
